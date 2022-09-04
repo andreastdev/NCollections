@@ -51,14 +51,11 @@ namespace NCollections.Core
             {
                 var length = span.Length;
 
-                _buffer = (TUnmanaged*)NativeMemory.Alloc((nuint)length, (nuint)Unsafe.SizeOf<TUnmanaged>());
+                _buffer = (TUnmanaged*)NativeMemory.AllocZeroed((nuint)length, (nuint)Unsafe.SizeOf<TUnmanaged>());
 
                 fixed (TUnmanaged* pointer = span)
                 {
-                    Unsafe.CopyBlock(
-                        _buffer,
-                        pointer,
-                        (uint)(length * Unsafe.SizeOf<TUnmanaged>()));
+                    Unsafe.CopyBlock(_buffer, pointer, (uint)(length * Unsafe.SizeOf<TUnmanaged>()));
                 }
 
                 _capacity = _count = length;
@@ -78,7 +75,7 @@ namespace NCollections.Core
 
             unsafe
             {
-                _buffer = (TUnmanaged*)NativeMemory.Alloc((nuint)capacity, (nuint)Unsafe.SizeOf<TUnmanaged>());
+                _buffer = (TUnmanaged*)NativeMemory.AllocZeroed((nuint)capacity, (nuint)Unsafe.SizeOf<TUnmanaged>());
                 _capacity = capacity;
                 _count = _startIndex = _endIndex = 0;
             }
@@ -104,9 +101,7 @@ namespace NCollections.Core
                 _buffer[_count] = item;
                 _count += 1;
 
-                _endIndex = (uint)_endIndex >= (uint)_capacity - 1
-                    ? 0
-                    : _endIndex + 1;
+                _endIndex = (uint)_endIndex >= (uint)_capacity - 1 ? 0 : _endIndex + 1;
             }
         }
 
@@ -120,9 +115,7 @@ namespace NCollections.Core
                 _buffer[_count] = item;
                 _count += 1;
 
-                _endIndex = (uint)_endIndex >= (uint)_capacity - 1
-                    ? 0
-                    : _endIndex + 1;
+                _endIndex = (uint)_endIndex >= (uint)_capacity - 1 ? 0 : _endIndex + 1;
 
                 return true;
             }
@@ -136,9 +129,7 @@ namespace NCollections.Core
             unsafe
             {
                 var dequeueIndex = _startIndex;
-                _startIndex = (uint)_startIndex >= (uint)_capacity - 1
-                    ? 0
-                    : _startIndex + 1;
+                _startIndex = (uint)_startIndex >= (uint)_capacity - 1 ? 0 : _startIndex + 1;
                 _count--;
 
                 return ref _buffer[dequeueIndex];
@@ -157,9 +148,7 @@ namespace NCollections.Core
             unsafe
             {
                 var dequeueIndex = _startIndex;
-                _startIndex = (uint)_startIndex >= (uint)_capacity - 1
-                    ? 0
-                    : _startIndex + 1;
+                _startIndex = (uint)_startIndex >= (uint)_capacity - 1 ? 0 : _startIndex + 1;
                 _count--;
 
                 item = _buffer[dequeueIndex];
@@ -200,17 +189,68 @@ namespace NCollections.Core
             }
         }
 
+        public void Calibrate()
+        {
+            if (_count == 0 || _startIndex == 0)
+                return;
+
+            unsafe
+            {
+                if (_startIndex == _endIndex)
+                {
+                    _buffer[0] = _buffer[_startIndex];
+                }
+                else if (_startIndex < _endIndex)
+                {
+                    Unsafe.CopyBlock(_buffer, &_buffer[_startIndex], (uint)(_count * Unsafe.SizeOf<TUnmanaged>()));
+                }
+                else
+                {
+                    var size = Unsafe.SizeOf<TUnmanaged>();
+                    var headCount = _endIndex + 1;
+                    var tailCount = _capacity - _startIndex;
+                    
+                    var tempBuffer = (TUnmanaged*)NativeMemory.AllocZeroed((nuint)headCount, (nuint)size);
+
+                    Unsafe.CopyBlock(_buffer, &_buffer[_startIndex], (uint)(tailCount * size));
+                    Unsafe.CopyBlock(&_buffer[tailCount], tempBuffer, (uint)(headCount * size));
+                    
+                    NativeMemory.Free(tempBuffer);
+                }
+
+                _startIndex = 0;
+                _endIndex = _count - 1;
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly NativeReadOnlyCollection<TUnmanaged> AsReadOnly()
+        public NativeReadOnlyCollection<TUnmanaged> AsReadOnly()
+        {
+            if (_startIndex != 0)
+                Calibrate();
+
+            unsafe
+            {
+                return new NativeReadOnlyCollection<TUnmanaged>(in _buffer, in _count);
+            }
+        }
+
+        public readonly NativeEnumerator<TUnmanaged> GetEnumerator()
         {
             unsafe
             {
-                return new NativeReadOnlyCollection<TUnmanaged>(
-                    in _buffer,
-                    in _count,
-                    in _startIndex,
-                    in _endIndex);
+                return new NativeEnumerator<TUnmanaged>(in _buffer, in _count, in _startIndex, in _endIndex);
             }
+        }
+
+        public readonly ref TUnmanaged GetPinnableReference()
+        {
+            if (_count != 0)
+            {
+                unsafe { return ref _buffer[_startIndex]; }
+            }
+
+            return ref Unsafe.NullRef<TUnmanaged>();
         }
 
         public void Dispose()
@@ -223,28 +263,6 @@ namespace NCollections.Core
                 NativeMemory.Free(_buffer);
                 this = Void;
             }
-        }
-
-        public readonly NativeEnumerator<TUnmanaged> GetEnumerator()
-        {
-            unsafe
-            {
-                return new NativeEnumerator<TUnmanaged>(
-                    in _buffer,
-                    in _count,
-                    in _startIndex,
-                    in _endIndex);
-            }
-        }
-
-        public readonly ref TUnmanaged GetPinnableReference()
-        {
-            if (_count != 0)
-            {
-                unsafe { return ref _buffer[_startIndex]; }
-            }
-
-            return ref Unsafe.NullRef<TUnmanaged>();
         }
 
         public bool Equals(NativeQueue<TUnmanaged> other)
@@ -272,7 +290,9 @@ namespace NCollections.Core
                 var hash = hashingBase;
 
                 hash = (hash * hashingMultiplier)
-                       ^ (!ReferenceEquals(null, typeof(NativeQueue<TUnmanaged>)) ? typeof(NativeQueue<TUnmanaged>).GetHashCode() : 0);
+                       ^ (!ReferenceEquals(null, typeof(NativeQueue<TUnmanaged>))
+                           ? typeof(NativeQueue<TUnmanaged>).GetHashCode()
+                           : 0);
 
                 hash = (hash * hashingMultiplier)
                        ^ (!ReferenceEquals(null, typeof(TUnmanaged)) ? typeof(TUnmanaged).GetHashCode() : 0);

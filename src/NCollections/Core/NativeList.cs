@@ -49,7 +49,7 @@ namespace NCollections.Core
             {
                 var length = span.Length;
 
-                _buffer = (TUnmanaged*)NativeMemory.Alloc((nuint)length, (nuint)Unsafe.SizeOf<TUnmanaged>());
+                _buffer = (TUnmanaged*)NativeMemory.AllocZeroed((nuint)length, (nuint)Unsafe.SizeOf<TUnmanaged>());
 
                 fixed (TUnmanaged* pointer = span)
                 {
@@ -72,7 +72,7 @@ namespace NCollections.Core
 
             unsafe
             {
-                _buffer = (TUnmanaged*)NativeMemory.Alloc((nuint)capacity, (nuint)Unsafe.SizeOf<TUnmanaged>());
+                _buffer = (TUnmanaged*)NativeMemory.AllocZeroed((nuint)capacity, (nuint)Unsafe.SizeOf<TUnmanaged>());
                 _capacity = capacity;
                 _count = 0;
             }
@@ -105,7 +105,7 @@ namespace NCollections.Core
             {
                 if ((uint)index >= (uint)_capacity)
                     ThrowHelpers.IndexOutOfRangeException();
-                
+
                 unsafe
                 {
                     _buffer[index] = value;
@@ -216,18 +216,6 @@ namespace NCollections.Core
             unsafe { return new NativeReadOnlyCollection<TUnmanaged>(in _buffer, in _count); }
         }
 
-        public void Dispose()
-        {
-            unsafe
-            {
-                if (Equals(Void))
-                    return;
-
-                NativeMemory.Free(_buffer);
-                this = Void;
-            }
-        }
-
         public readonly NativeEnumerator<TUnmanaged> GetEnumerator()
         {
             unsafe { return new NativeEnumerator<TUnmanaged>(in _buffer, in _count); }
@@ -241,6 +229,18 @@ namespace NCollections.Core
             }
 
             return ref Unsafe.NullRef<TUnmanaged>();
+        }
+
+        public void Dispose()
+        {
+            unsafe
+            {
+                if (Equals(Void))
+                    return;
+
+                NativeMemory.Free(_buffer);
+                this = Void;
+            }
         }
 
         public bool Equals(NativeList<TUnmanaged> other)
