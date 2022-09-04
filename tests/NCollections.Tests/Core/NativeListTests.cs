@@ -90,13 +90,41 @@ namespace NCollections.Tests.Core
 
         [Theory]
         [MemberData(nameof(DataGenerator.GetPositiveNumbers), Limit, MemberType = typeof(DataGenerator))]
-        public void Indexer_UseIndexGreaterThanCapacity_ShouldThrow(int capacity)
+        public void Indexer_GetIndexGreaterThanCapacity_ShouldThrow(int capacity)
         {
             var additional = DataGenerator.GetRandomNumber(1, int.MaxValue - capacity);
 
             _sut = new NativeList<int>(capacity);
 
             Assert.Throws<IndexOutOfRangeException>(() => _sut[capacity + additional]);
+        }
+        
+        [Theory]
+        [MemberData(nameof(DataGenerator.GetRandomArrays), Limit, MemberType = typeof(DataGenerator))]
+        public void Indexer_SetIndexWithArrayValue_ShouldMatchArray(int[] array)
+        {
+            _sut = new NativeList<int>(array.Length);
+
+            for (var i = 0; i < array.Length; i++)
+            {
+                _sut[i] = array[i];
+            }
+            
+            for (var i = 0; i < array.Length; i++)
+            {
+                Assert.Equal(array[i], _sut[i]);
+            }
+        }
+        
+        [Theory]
+        [MemberData(nameof(DataGenerator.GetPositiveNumbers), Limit, MemberType = typeof(DataGenerator))]
+        public void Indexer_SetIndexGreaterThanCapacity_ShouldThrow(int capacity)
+        {
+            var additional = DataGenerator.GetRandomNumber(1, int.MaxValue - capacity);
+
+            _sut = new NativeList<int>(capacity);
+
+            Assert.Throws<IndexOutOfRangeException>(() => _sut[capacity + additional] = DataGenerator.GetRandomNumber());
         }
 
         [Theory]
