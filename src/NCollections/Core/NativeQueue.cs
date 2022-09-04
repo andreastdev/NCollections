@@ -139,6 +139,7 @@ namespace NCollections.Core
                 _startIndex = (uint)_startIndex >= (uint)_capacity - 1
                     ? 0
                     : _startIndex + 1;
+                _count--;
 
                 return ref _buffer[dequeueIndex];
             }
@@ -159,6 +160,7 @@ namespace NCollections.Core
                 _startIndex = (uint)_startIndex >= (uint)_capacity - 1
                     ? 0
                     : _startIndex + 1;
+                _count--;
 
                 item = _buffer[dequeueIndex];
 
