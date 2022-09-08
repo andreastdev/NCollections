@@ -59,7 +59,8 @@ namespace NCollections.Core
                 }
 
                 _capacity = _count = length;
-                _startIndex = _endIndex = 0;
+                _startIndex = 0;
+                _endIndex = length - 1;
             }
         }
 
@@ -77,7 +78,8 @@ namespace NCollections.Core
             {
                 _buffer = (TUnmanaged*)NativeMemory.AllocZeroed((nuint)capacity, (nuint)Unsafe.SizeOf<TUnmanaged>());
                 _capacity = capacity;
-                _count = _startIndex = _endIndex = 0;
+                _count = _startIndex = 0;
+                _endIndex = -1;
             }
         }
 
@@ -87,7 +89,8 @@ namespace NCollections.Core
             unsafe
             {
                 _buffer = (TUnmanaged*)Unsafe.AsPointer(ref Unsafe.NullRef<TUnmanaged>());
-                _capacity = _count = _startIndex = _endIndex = 0;
+                _capacity = _count = _startIndex = 0;
+                _endIndex = -1;
             }
         }
 
@@ -209,13 +212,19 @@ namespace NCollections.Core
                     var size = Unsafe.SizeOf<TUnmanaged>();
                     var headCount = _endIndex + 1;
                     var tailCount = _capacity - _startIndex;
-                    
-                    var tempBuffer = (TUnmanaged*)NativeMemory.AllocZeroed((nuint)headCount, (nuint)size);
 
-                    Unsafe.CopyBlock(_buffer, &_buffer[_startIndex], (uint)(tailCount * size));
-                    Unsafe.CopyBlock(&_buffer[tailCount], tempBuffer, (uint)(headCount * size));
-                    
-                    NativeMemory.Free(tempBuffer);
+                    var unorderedBuffer = new Span<TUnmanaged>(_buffer, _count);
+                    var headSpan = unorderedBuffer[..headCount];
+                    var tailSpan = unorderedBuffer[headCount.._count];
+
+                    fixed (TUnmanaged* head = headSpan)
+                    {
+                        fixed (TUnmanaged* tail = tailSpan)
+                        {
+                            Unsafe.CopyBlock(_buffer, head, (uint)(tailCount * size));
+                            Unsafe.CopyBlock(&_buffer[headCount], tail, (uint)(headCount * size));
+                        }
+                    }
                 }
 
                 _startIndex = 0;
@@ -226,8 +235,7 @@ namespace NCollections.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public NativeReadOnlyCollection<TUnmanaged> AsReadOnly()
         {
-            if (_startIndex != 0)
-                Calibrate();
+            Calibrate();
 
             unsafe
             {
