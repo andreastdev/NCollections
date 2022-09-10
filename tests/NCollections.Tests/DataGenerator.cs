@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NCollections.Tests
 {
@@ -43,13 +44,18 @@ namespace NCollections.Tests
         public static int GetRandomNumber(int min = int.MinValue, int max = int.MaxValue) =>
             new Random().Next(min, max);
 
-        private static int[] GenerateRandomArray(int length)
+        public static int[] GenerateRandomArray(int length)
         {
             var temp = new int[length];
 
             for (var i = 0; i < length; i++)
             {
-                temp[i] = GetRandomNumber();
+                var randomNumber = GetRandomNumber();
+
+                while (!temp.Contains(randomNumber))
+                {
+                    temp[i] = randomNumber;
+                }
             }
 
             return temp;

@@ -36,23 +36,6 @@ namespace NCollections.Core
             _count = count;
         }
 
-        internal unsafe NativeReadOnlyCollection(
-            in TUnmanaged* buffer,
-            in int count,
-            in int startIndex,
-            in int endIndex)
-        {
-            if (count <= 0)
-            {
-                this = Void;
-
-                return;
-            }
-
-            _buffer = buffer;
-            _count = count;
-        }
-        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public NativeReadOnlyCollection()
         {
@@ -69,9 +52,7 @@ namespace NCollections.Core
             get
             {
                 if ((uint)index >= (uint)_count)
-                {
                     ThrowHelpers.IndexOutOfRangeException();
-                }
 
                 unsafe
                 {

@@ -1,8 +1,10 @@
 ﻿using NCollections.Core;
 
 using System;
+using System.Linq;
 
 using Xunit;
+using Xunit.Abstractions;
 
 namespace NCollections.Tests.Core
 {
@@ -11,6 +13,10 @@ namespace NCollections.Tests.Core
         private const int Limit = 1000;
 
         private NativeQueue<int> _sut;
+
+        private readonly ITestOutputHelper _output;
+
+        public NativeQueueTests(ITestOutputHelper output) => _output = output;
 
         public override void Dispose()
         {
@@ -117,7 +123,7 @@ namespace NCollections.Tests.Core
             Assert.True(_sut.IsFull);
             Assert.False(_sut.TryEnqueue(DataGenerator.GetRandomNumber()));
         }
-        
+
         [Theory]
         [InlineData(null)]
         [MemberData(nameof(DataGenerator.GetRandomArrays), Limit, MemberType = typeof(DataGenerator))]
@@ -136,7 +142,7 @@ namespace NCollections.Tests.Core
                 Assert.Equal(array.Length - 1, _sut.Count);
             }
         }
-        
+
         [Theory]
         [InlineData(null)]
         [MemberData(nameof(DataGenerator.GetRandomArrays), Limit, MemberType = typeof(DataGenerator))]
@@ -157,7 +163,7 @@ namespace NCollections.Tests.Core
                 Assert.Equal(array.Length - 1, _sut.Count);
             }
         }
-        
+
         [Theory]
         [InlineData(null)]
         [MemberData(nameof(DataGenerator.GetRandomArrays), Limit, MemberType = typeof(DataGenerator))]
@@ -176,7 +182,7 @@ namespace NCollections.Tests.Core
                 Assert.Equal(array.Length, _sut.Count);
             }
         }
-        
+
         [Theory]
         [InlineData(null)]
         [MemberData(nameof(DataGenerator.GetRandomArrays), Limit, MemberType = typeof(DataGenerator))]
@@ -199,13 +205,161 @@ namespace NCollections.Tests.Core
         }
 
         [Fact]
+        public void Calibrate_UseEmptyQueue_ReturnTheSameQueue()
+        {
+            _sut = new NativeQueue<int>();
+            var sutCopy = _sut;
+
+            sutCopy.Calibrate();
+
+            Assert.Equal(_sut, sutCopy);
+        }
+
+        [Theory]
+        [MemberData(nameof(DataGenerator.GetPositiveNumbersNonZero), Limit, MemberType = typeof(DataGenerator))]
+        public void Calibrate_UseQueueWithOneElementAtRandomIndex_ReturnTheSameQueue(int capacity)
+        {
+            _sut = new NativeQueue<int>(capacity);
+
+            var enqueueCount = DataGenerator.GetRandomNumber(1, capacity - 1);
+
+            for (var i = 0; i < enqueueCount - 1; i++)
+            {
+                _sut.Enqueue(DataGenerator.GetRandomNumber());
+            }
+
+            var lastAddition = DataGenerator.GetRandomNumber();
+            _sut.Enqueue(lastAddition);
+
+            var dequeueCount = enqueueCount - 1;
+
+            for (var i = 0; i < dequeueCount; i++)
+            {
+                _sut.Dequeue();
+            }
+
+            Assert.Equal(1, _sut.Count);
+
+            _sut.Calibrate();
+
+            Assert.Equal(1, _sut.Count);
+            Assert.Equal(lastAddition, _sut.Peek());
+        }
+
+        [Theory]
+        [MemberData(nameof(DataGenerator.GetPositiveNumbersNonZero), Limit, MemberType = typeof(DataGenerator))]
+        public void Calibrate_UseQueueWithManyElementsAtRandomIndexAndStartIndexLessThanEndIndex_ReturnTheSameQueue(
+            int capacity)
+        {
+            _sut = new NativeQueue<int>(capacity);
+
+            var lastAdditions = DataGenerator.GenerateRandomArray(DataGenerator.GetRandomNumber(1, capacity - 2));
+            var initialCount = DataGenerator.GetRandomNumber(1, capacity - lastAdditions.Length);
+
+            for (var i = 0; i < initialCount; i++)
+            {
+                _sut.Enqueue(DataGenerator.GetRandomNumber());
+            }
+
+            foreach (var lastAddition in lastAdditions)
+            {
+                _sut.Enqueue(lastAddition);
+            }
+
+            for (var i = 0; i < initialCount; i++)
+            {
+                _sut.Dequeue();
+            }
+
+            Assert.Equal(lastAdditions.Length, _sut.Count);
+
+            var count = 0;
+            foreach (var item in _sut)
+            {
+                Assert.NotEqual(item, lastAdditions[count]);
+                count++;
+            }
+
+            _sut.Calibrate();
+
+            Assert.Equal(lastAdditions.Length, _sut.Count);
+
+            count = 0;
+            foreach (var item in _sut)
+            {
+                Assert.Equal(item, lastAdditions[count]);
+                count++;
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(DataGenerator.GetPositiveNumbersNonZero), Limit, MemberType = typeof(DataGenerator))]
+        public void Calibrate_UseQueueWithManyElementsAtRandomIndexAndStartIndexGreaterThanEndIndex_ReturnTheSameQueue(
+            int capacity)
+        {
+            _sut = new NativeQueue<int>(capacity);
+            var aboveMiddleBelowCapacity = DataGenerator.GetRandomNumber(
+                (int)Math.Ceiling(capacity * 0.5f) + 1,
+                capacity - 1);
+
+            var items = DataGenerator.GenerateRandomArray(aboveMiddleBelowCapacity);
+
+            foreach (var item in items)
+            {
+                _sut.Enqueue(item);
+            }
+
+            Assert.Equal(items.Length, _sut.Count);
+
+            for (var i = 0; i < items.Length; i++)
+            {
+                _sut.Dequeue();
+            }
+
+            Assert.True(_sut.IsEmpty);
+
+            foreach (var item in items)
+            {
+                _sut.Enqueue(item);
+            }
+
+            Assert.Equal(items.Length, _sut.Count);
+
+            unsafe
+            {
+                fixed (int* ptr = _sut)
+                {
+                    for (var i = 0; i < items.Length; i++)
+                    {
+                        Assert.NotEqual(items[i], ptr[i]);
+                    }
+                }
+            }
+
+            _sut.Calibrate();
+
+            Assert.Equal(items.Length, _sut.Count);
+
+            unsafe
+            {
+                fixed (int* ptr = _sut)
+                {
+                    for (var i = 0; i < items.Length; i++)
+                    {
+                        Assert.Equal(items[i], ptr[i]);
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void AsReadOnly_TransformNativeQueue_ReturnReadOnlyNativeCollection()
         {
             _sut = new NativeQueue<int>();
 
             Assert.Equal(typeof(NativeReadOnlyCollection<int>), _sut.AsReadOnly().GetType());
         }
-        
+
         [Theory]
         [MemberData(nameof(DataGenerator.GetRandomArrays), Limit, MemberType = typeof(DataGenerator))]
         public void GetEnumerator_ForeachLoop_ShouldGoThroughAllElementsInOrder(int[] array)
@@ -257,7 +411,7 @@ namespace NCollections.Tests.Core
                 }
             }
         }
-        
+
         [Theory]
         [MemberData(nameof(DataGenerator.GetRandomArrays), Limit, MemberType = typeof(DataGenerator))]
         public void Equality_UseEqualsAndOperators_ShouldReturnExpectedResults(int[] array)
