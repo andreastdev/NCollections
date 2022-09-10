@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NCollections.Tests
 {
@@ -49,7 +50,12 @@ namespace NCollections.Tests
 
             for (var i = 0; i < length; i++)
             {
-                temp[i] = GetRandomNumber();
+                var randomNumber = GetRandomNumber();
+
+                while (!temp.Contains(randomNumber))
+                {
+                    temp[i] = randomNumber;
+                }
             }
 
             return temp;

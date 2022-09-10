@@ -124,18 +124,20 @@ namespace NCollections.Core
             }
         }
 
-        public ref TUnmanaged Dequeue()
+        public TUnmanaged Dequeue()
         {
             if (_count == 0)
                 ThrowHelpers.InvalidOperationException();
 
             unsafe
             {
-                var dequeueIndex = _startIndex;
+                var output = _buffer[_startIndex];
+                _buffer[_startIndex] = default;
+
                 _startIndex = (uint)_startIndex >= (uint)_capacity - 1 ? 0 : _startIndex + 1;
                 _count--;
 
-                return ref _buffer[dequeueIndex];
+                return output;
             }
         }
 
@@ -150,11 +152,11 @@ namespace NCollections.Core
 
             unsafe
             {
-                var dequeueIndex = _startIndex;
+                item = _buffer[_startIndex];
+                _buffer[_startIndex] = default;
+                
                 _startIndex = (uint)_startIndex >= (uint)_capacity - 1 ? 0 : _startIndex + 1;
                 _count--;
-
-                item = _buffer[dequeueIndex];
 
                 return true;
             }
@@ -206,25 +208,6 @@ namespace NCollections.Core
                 else if (_startIndex < _endIndex)
                 {
                     Unsafe.CopyBlock(_buffer, &_buffer[_startIndex], (uint)(_count * Unsafe.SizeOf<TUnmanaged>()));
-                }
-                else
-                {
-                    var size = Unsafe.SizeOf<TUnmanaged>();
-                    var headCount = _endIndex + 1;
-                    var tailCount = _capacity - _startIndex;
-
-                    var unorderedBuffer = new Span<TUnmanaged>(_buffer, _count);
-                    var headSpan = unorderedBuffer[..headCount];
-                    var tailSpan = unorderedBuffer[headCount.._count];
-
-                    fixed (TUnmanaged* head = headSpan)
-                    {
-                        fixed (TUnmanaged* tail = tailSpan)
-                        {
-                            Unsafe.CopyBlock(_buffer, head, (uint)(tailCount * size));
-                            Unsafe.CopyBlock(&_buffer[headCount], tail, (uint)(headCount * size));
-                        }
-                    }
                 }
 
                 _startIndex = 0;

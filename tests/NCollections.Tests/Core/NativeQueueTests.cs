@@ -273,13 +273,22 @@ namespace NCollections.Tests.Core
 
             Assert.Equal(lastAdditions.Length, _sut.Count);
 
+            var count = 0;
+            foreach (var item in _sut)
+            {
+                Assert.NotEqual(item, lastAdditions[count]);
+                count++;
+            }
+
             _sut.Calibrate();
 
             Assert.Equal(lastAdditions.Length, _sut.Count);
 
-            foreach (var lastAddition in lastAdditions)
+            count = 0;
+            foreach (var item in _sut)
             {
-                Assert.Equal(lastAddition, _sut.Dequeue());
+                Assert.Equal(item, lastAdditions[count]);
+                count++;
             }
         }
 
@@ -288,8 +297,6 @@ namespace NCollections.Tests.Core
         public void Calibrate_UseQueueWithManyElementsAtRandomIndexAndStartIndexGreaterThanEndIndex_ReturnTheSameQueue(
             int capacity)
         {
-            capacity = 10;
-            
             _sut = new NativeQueue<int>(capacity);
             var aboveMiddleBelowCapacity = DataGenerator.GetRandomNumber(
                 (int)Math.Ceiling(capacity * 0.5f) + 1,
@@ -318,14 +325,30 @@ namespace NCollections.Tests.Core
 
             Assert.Equal(items.Length, _sut.Count);
 
+            unsafe
+            {
+                fixed (int* ptr = _sut)
+                {
+                    for (var i = 0; i < items.Length; i++)
+                    {
+                        Assert.NotEqual(items[i], ptr[i]);
+                    }
+                }
+            }
+
             _sut.Calibrate();
 
             Assert.Equal(items.Length, _sut.Count);
 
-            foreach (var item in items)
+            unsafe
             {
-                // Assert.Equal(item, _sut.Dequeue());
-                _output.WriteLine($"{item} - {_sut.Dequeue()}");
+                fixed (int* ptr = _sut)
+                {
+                    for (var i = 0; i < items.Length; i++)
+                    {
+                        Assert.Equal(items[i], ptr[i]);
+                    }
+                }
             }
         }
 
