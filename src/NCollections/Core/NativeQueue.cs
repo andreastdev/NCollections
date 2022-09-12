@@ -22,6 +22,10 @@ namespace NCollections.Core
 
         public readonly int Count => _count;
 
+        internal readonly int StartIndex => _startIndex;
+
+        internal readonly int EndIndex => _endIndex;
+
         public readonly int ByteCapacity
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -226,11 +230,13 @@ namespace NCollections.Core
             }
         }
 
-        public readonly NativeEnumerator<TUnmanaged> GetEnumerator()
+        public NativeEnumerator<TUnmanaged> GetEnumerator()
         {
+            Calibrate();
+            
             unsafe
             {
-                return new NativeEnumerator<TUnmanaged>(in _buffer, in _count, in _startIndex, in _endIndex);
+                return new NativeEnumerator<TUnmanaged>(in _buffer, in _count);
             }
         }
 
