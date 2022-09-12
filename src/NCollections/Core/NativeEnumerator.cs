@@ -18,18 +18,6 @@ namespace NCollections.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe NativeEnumerator(
-            in TUnmanaged* buffer,
-            in int count,
-            in int startIndex,
-            in int endIndex)
-        {
-            _buffer = buffer;
-            _count = count;
-            _index = -1;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
             var index = _index + 1;

@@ -238,11 +238,14 @@ namespace NCollections.Tests.Core
                 _sut.Dequeue();
             }
 
+            Assert.True(_sut.StartIndex == _sut.EndIndex);
             Assert.Equal(1, _sut.Count);
+            Assert.NotEqual(0, _sut.StartIndex);
 
             _sut.Calibrate();
 
             Assert.Equal(1, _sut.Count);
+            Assert.Equal(0, _sut.StartIndex);
             Assert.Equal(lastAddition, _sut.Peek());
         }
 
@@ -251,6 +254,9 @@ namespace NCollections.Tests.Core
         public void Calibrate_UseQueueWithManyElementsAtRandomIndexAndStartIndexLessThanEndIndex_ReturnTheSameQueue(
             int capacity)
         {
+            if (capacity < 3)
+                capacity = 3;
+            
             _sut = new NativeQueue<int>(capacity);
 
             var lastAdditions = DataGenerator.GenerateRandomArray(DataGenerator.GetRandomNumber(1, capacity - 2));
@@ -271,18 +277,21 @@ namespace NCollections.Tests.Core
                 _sut.Dequeue();
             }
 
+            Assert.True(_sut.StartIndex < _sut.EndIndex);
             Assert.Equal(lastAdditions.Length, _sut.Count);
+            Assert.NotEqual(0, _sut.StartIndex);
 
             var count = 0;
             foreach (var item in _sut)
             {
-                Assert.NotEqual(item, lastAdditions[count]);
+                Assert.Equal(item, lastAdditions[count]);
                 count++;
             }
 
             _sut.Calibrate();
 
             Assert.Equal(lastAdditions.Length, _sut.Count);
+            Assert.Equal(0, _sut.StartIndex);
 
             count = 0;
             foreach (var item in _sut)
@@ -323,7 +332,9 @@ namespace NCollections.Tests.Core
                 _sut.Enqueue(item);
             }
 
+            Assert.True(_sut.StartIndex > _sut.EndIndex);
             Assert.Equal(items.Length, _sut.Count);
+            Assert.NotEqual(0, _sut.StartIndex);
 
             unsafe
             {
@@ -339,6 +350,8 @@ namespace NCollections.Tests.Core
             _sut.Calibrate();
 
             Assert.Equal(items.Length, _sut.Count);
+            Assert.True(_sut.StartIndex < _sut.EndIndex);
+            Assert.Equal(0, _sut.StartIndex);
 
             unsafe
             {
