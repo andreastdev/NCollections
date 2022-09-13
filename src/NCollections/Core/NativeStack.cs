@@ -196,7 +196,7 @@ namespace NCollections.Core
         {
             if (_count != 0)
             {
-                unsafe { return ref _buffer[0];}
+                unsafe { return ref _buffer[_count - 1];}
             }
 
             return ref Unsafe.NullRef<TUnmanaged>();
